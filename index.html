@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Control de Reproceso — Planta</title>
+<style>
+  :root{
+    --page:#eef1f6;
+    --card:#ffffff;
+    --line:#e3e8f0;
+    --ink:#1f2a44;
+    --ink-dim:#6b7688;
+    --blue:#3b63e0;
+    --blue-dark:#2b4bc4;
+    --blue-tint:#eef2fe;
+    --green:#2fa96a;
+    --green-dark:#238457;
+    --red:#e0554f;
+    --orange:#f2994a;
+    --radius:16px;
+    font-family:'Segoe UI', Roboto, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;min-height:100%;background:var(--page);color:var(--ink);}
+  body{-webkit-tap-highlight-color:transparent;}
+
+  .page{max-width:1400px; margin:0 auto; padding:22px 26px 60px;}
+
+  /* ---------- TABS ---------- */
+  .tabbar{display:flex; gap:26px; margin-bottom:16px; padding:0 4px;}
+  .tabbar button{
+    background:none; border:none; padding:10px 2px; font-size:15px; font-weight:700;
+    color:var(--ink-dim); cursor:pointer; border-bottom:3px solid transparent;
+  }
+  .tabbar button.active{color:var(--blue); border-bottom-color:var(--blue);}
+
+  .screen{display:none;}
+  .screen.active{display:block;}
+
+  .card{
+    background:var(--card); border-radius:var(--radius); box-shadow:0 2px 18px rgba(30,42,80,.06);
+    border:1px solid var(--line); padding:24px 26px; margin-bottom:22px;
+  }
+
+  /* ---------- HEADER ROW ---------- */
+  .top-row{display:flex; align-items:center; flex-wrap:wrap; gap:18px 26px;}
+  .top-row h1{font-size:26px; margin:0; color:var(--blue-dark); font-weight:800; letter-spacing:.2px; white-space:nowrap;}
+  .familia-box{display:flex; align-items:center; gap:12px;}
+  .familia-box label{font-size:16px; font-weight:700; color:var(--ink); white-space:nowrap;}
+  .familia-box select{
+    padding:12px 16px; font-size:16px; border-radius:10px; border:2px solid var(--blue);
+    background:var(--blue-tint); color:var(--blue-dark); font-weight:700; min-width:190px;
+  }
+  .clock-badge{
+    margin-left:auto; display:flex; align-items:center; gap:8px;
+    background:#f4f6fb; border:1px solid var(--line); border-radius:10px;
+    padding:10px 16px; color:var(--ink-dim); font-size:15px; font-weight:600;
+  }
+  .hr{height:1px; background:var(--line); margin:18px 0 22px;}
+
+  /* ---------- FORM ROW ---------- */
+  .form-row{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap;}
+  .f-group{display:flex; flex-direction:column; gap:7px;}
+  .f-group label{font-size:12.5px; font-weight:700; color:var(--ink); letter-spacing:.3px; text-transform:uppercase;}
+  .f-group label .req{color:var(--red);}
+  .field-input{
+    padding:13px 14px; font-size:16px; border-radius:10px; border:1.5px solid var(--line);
+    background:#fff; color:var(--ink); font-family:inherit; height:48px;
+  }
+  .field-input:focus{outline:none; border-color:var(--blue);}
+  .field-input[disabled]{background:#f1f3f8; color:#9aa3b5;}
+  .field-input.readonly-tap{cursor:pointer; background:#fff;}
+  select.field-input{cursor:pointer;}
+
+  .f-op{width:110px;}
+  .f-codigo{width:110px;}
+  .f-desc{flex:1; min-width:260px;}
+  .f-cant{width:150px;}
+  .qty-wrap{position:relative;}
+  .qty-wrap input{width:100%; padding-right:56px;}
+  .qty-unit{
+    position:absolute; right:10px; top:50%; transform:translateY(-50%);
+    font-size:12px; color:var(--ink-dim); font-weight:700; pointer-events:none;
+  }
+  .f-motivo{width:190px;}
+
+  .btn-agregar{
+    background:var(--green); color:#fff; border:none; border-radius:10px;
+    padding:0 26px; height:48px; font-size:16px; font-weight:800; cursor:pointer;
+    display:flex; align-items:center; gap:8px; white-space:nowrap;
+  }
+  .btn-agregar:active{background:var(--green-dark);}
+  .btn-agregar.updating{background:var(--orange);}
+  .btn-cancelar{
+    background:none; border:1.5px solid var(--line); color:var(--ink-dim);
+    border-radius:10px; height:48px; padding:0 18px; font-size:14px; font-weight:700; cursor:pointer;
+  }
+
+  /* ---------- TABLE ---------- */
+  .table-wrap{overflow-x:auto;}
+  table{width:100%; border-collapse:collapse; min-width:820px;}
+  thead th{
+    background:#f4f6fb; color:var(--ink-dim); font-size:12px; text-transform:uppercase;
+    letter-spacing:.6px; padding:14px 12px; text-align:left; font-weight:800;
+  }
+  tbody td{padding:16px 12px; border-bottom:1px solid var(--line); font-size:15px; color:var(--ink);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover td{background:#fafbfe;}
+  .op-cell{font-weight:800; color:var(--blue-dark);}
+  .qty-cell{font-weight:700;}
+  .qty-cell .u{color:var(--ink-dim); font-weight:600; font-size:12.5px; margin-left:3px;}
+  .empty-row td{text-align:center; color:var(--ink-dim); padding:40px;}
+  .row-actions{display:flex; flex-direction:column; gap:8px; align-items:center;}
+  .icon-btn{
+    width:34px; height:34px; border-radius:8px; border:none; background:none;
+    cursor:pointer; font-size:17px; display:flex; align-items:center; justify-content:center;
+  }
+  .icon-btn.edit{color:var(--orange);}
+  .icon-btn.edit:active{background:#fdf0e2;}
+  .icon-btn.del{color:#9aa3b5;}
+  .icon-btn.del:active{background:#fdeceb; color:var(--red);}
+
+  /* ---------- ADMIN SCREEN ---------- */
+  .admin-grid{display:grid; grid-template-columns:1fr 1fr; gap:22px;}
+  @media(max-width:840px){.admin-grid{grid-template-columns:1fr;}}
+  .card h2{margin:0 0 18px; font-size:16px; color:var(--ink); font-weight:800;}
+  .stack{display:flex; flex-direction:column; gap:14px; margin-bottom:18px;}
+  .stack label{font-size:12.5px; font-weight:700; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.3px; margin-bottom:6px; display:block;}
+  .stack .row2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .full-input{width:100%; padding:13px 14px; font-size:15px; border-radius:10px; border:1.5px solid var(--line); font-family:inherit;}
+  .full-input:focus{outline:none; border-color:var(--blue);}
+  .btn-block{width:100%; background:var(--blue); color:#fff; border:none; border-radius:10px; padding:14px; font-size:15px; font-weight:800; cursor:pointer;}
+  .btn-block:active{background:var(--blue-dark);}
+  .list-item{display:flex; justify-content:space-between; align-items:center; padding:13px 4px; border-bottom:1px solid var(--line); gap:12px;}
+  .list-item:last-child{border-bottom:none;}
+  .list-item .name{font-weight:700; font-size:14.5px;}
+  .list-item .meta{font-size:12.5px; color:var(--ink-dim); margin-top:2px;}
+  .scroll-list{max-height:340px; overflow-y:auto; margin-top:8px; border-top:1px solid var(--line);}
+  .count-pill{background:var(--blue-tint); color:var(--blue-dark); font-size:12px; font-weight:800; padding:3px 10px; border-radius:20px; margin-left:8px;}
+
+  /* ---------- TOAST ---------- */
+  #toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(140%);
+    background:#1f2a44; color:#fff; padding:14px 24px; border-radius:12px; font-size:14px;
+    font-weight:600; z-index:100; transition:transform .25s ease; box-shadow:0 10px 30px rgba(0,0,0,.2);
+  }
+  #toast.show{transform:translateX(-50%) translateY(0);}
+  #toast.ok{background:var(--green);}
+  #toast.err{background:var(--red);}
+
+  /* ---------- MODAL / KEYPAD ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(20,26,44,.45); z-index:50;
+    display:none; align-items:center; justify-content:center; padding:16px;
+  }
+  .overlay.show{display:flex;}
+  .sheet{
+    background:#fff; width:100%; max-width:380px; border-radius:20px;
+    padding:22px; box-shadow:0 20px 60px rgba(20,26,44,.3);
+  }
+  .sheet-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
+  .sheet-head h3{margin:0; font-size:16px; color:var(--ink); font-weight:800;}
+  .sheet-close{background:none; border:none; color:var(--ink-dim); font-size:22px; cursor:pointer;}
+
+  .kp-display{
+    background:var(--blue-tint); border:2px solid var(--blue); border-radius:12px;
+    padding:16px; text-align:right; font-family:'Consolas','Courier New',monospace;
+    font-size:30px; font-weight:800; color:var(--blue-dark); margin-bottom:16px;
+    min-height:56px; display:flex; align-items:center; justify-content:flex-end;
+  }
+  .kp-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
+  .kp-key{
+    padding:20px 0; font-size:22px; font-weight:800; border-radius:12px; border:1.5px solid var(--line);
+    background:#f8f9fc; color:var(--ink); cursor:pointer;
+  }
+  .kp-key:active{background:var(--blue-tint); border-color:var(--blue);}
+  .kp-key.fn{color:var(--ink-dim); font-size:18px;}
+  .kp-actions{margin-top:16px; display:flex; gap:10px;}
+  .kp-actions button{flex:1; padding:16px; border-radius:10px; font-size:15px; font-weight:800; border:none; cursor:pointer;}
+  .kp-actions .clr{background:#f1f3f8; color:var(--ink-dim);}
+  .kp-actions .ok{background:var(--blue); color:#fff;}
+
+  .confirm-box{background:#fff; border-radius:18px; padding:24px; max-width:360px; width:100%; box-shadow:0 20px 60px rgba(20,26,44,.3);}
+  .confirm-box p{font-size:15px; line-height:1.5; margin:0 0 20px; color:var(--ink);}
+  .confirm-row{display:flex; gap:10px;}
+  .confirm-row button{flex:1; padding:14px; border-radius:10px; font-size:14.5px; font-weight:800; border:none; cursor:pointer;}
+  .confirm-row .cancel{background:#f1f3f8; color:var(--ink-dim);}
+  .confirm-row .ok{background:var(--red); color:#fff;}
+
+  @media(max-width:900px){
+    .form-row{align-items:stretch;}
+    .f-desc{flex-basis:100%;}
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="tabbar">
+    <button class="active" data-screen="ingreso">Ingreso</button>
+    <button data-screen="admin">Productos y Motivos</button>
+  </div>
+
+  <!-- ======================= PANTALLA INGRESO ======================= -->
+  <section class="screen active" id="screen-ingreso">
+    <div class="card">
+      <div class="top-row">
+        <h1>Control de Reproceso de Planta</h1>
+        <div class="familia-box">
+          <label>Familia:</label>
+          <select id="selFamilia" onchange="onFamiliaChange()">
+            <option value="">-- Seleccionar --</option>
+          </select>
+        </div>
+        <div class="clock-badge">🕐 <span id="clockText">--</span></div>
+      </div>
+      <div class="hr"></div>
+
+      <div class="form-row">
+        <div class="f-group f-op">
+          <label>OP <span class="req">*</span></label>
+          <input type="text" id="fOp" class="field-input readonly-tap" placeholder="OP" readonly onclick="abrirKeypad('op')">
+        </div>
+
+        <div class="f-group f-codigo">
+          <label>Código</label>
+          <input type="text" id="fCodigo" class="field-input" placeholder="Auto" disabled>
+        </div>
+
+        <div class="f-group f-desc">
+          <label>Descripción de producto <span class="req">*</span></label>
+          <select id="selDescripcion" class="field-input" onchange="onDescripcionChange()" disabled>
+            <option value="">-- Seleccione familia primero --</option>
+          </select>
+        </div>
+
+        <div class="f-group f-cant">
+          <label>Cantidad <span class="req">*</span></label>
+          <div class="qty-wrap">
+            <input type="text" id="fCantidad" class="field-input readonly-tap" placeholder="0.00" readonly onclick="abrirKeypad('cantidad')">
+            <span class="qty-unit" id="qtyUnit">UND</span>
+          </div>
+        </div>
+
+        <div class="f-group f-motivo">
+          <label>Motivo <span class="req">*</span></label>
+          <select id="selMotivo" class="field-input" onchange="onMotivoChange()">
+            <option value="">-- Seleccionar --</option>
+          </select>
+        </div>
+
+        <button class="btn-agregar" id="btnAgregar" onclick="enviarReproceso()">
+          <span id="btnAgregarIcon">＋</span> <span id="btnAgregarText">Registrar</span>
+        </button>
+        <button class="btn-cancelar" id="btnCancelarEdicion" style="display:none" onclick="cancelarEdicion()">Cancelar</button>
+      </div>
+    </div>
+
+    <div class="card table-card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha / Hora</th><th>OP</th><th>Código</th><th>Descripción</th><th>Cantidad</th><th>Motivo</th><th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaBody">
+            <tr class="empty-row"><td colspan="7">Cargando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= PANTALLA ADMIN ======================= -->
+  <section class="screen" id="screen-admin">
+    <div class="admin-grid">
+
+      <div class="card">
+        <h2>Agregar producto</h2>
+        <div class="stack">
+          <div>
+            <label>Código</label>
+            <input type="text" class="full-input" id="npCodigo" placeholder="Código" inputmode="numeric">
+          </div>
+          <div>
+            <label>Descripción</label>
+            <input type="text" class="full-input" id="npDescripcion" placeholder="Descripción del producto">
+          </div>
+          <div class="row2">
+            <div>
+              <label>UDM</label>
+              <select class="full-input" id="npUdm">
+                <option value="">-- Seleccionar --</option>
+                <option value="UND">UND</option>
+                <option value="KG">KG</option>
+              </select>
+            </div>
+            <div>
+              <label>Familia</label>
+              <select class="full-input" id="npFamilia">
+                <option value="">-- Seleccionar --</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <button class="btn-block" onclick="agregarProducto()">+ Agregar producto</button>
+
+        <h2 style="margin-top:24px">Productos <span class="count-pill" id="countProductos">0</span></h2>
+        <input type="text" class="full-input" id="buscarProducto" placeholder="Buscar por código o descripción…" oninput="renderProductosLista()">
+        <div class="scroll-list" id="listaProductos"></div>
+      </div>
+
+      <div class="card">
+        <h2>Agregar motivo</h2>
+        <div class="stack">
+          <div>
+            <label>Motivo</label>
+            <input type="text" class="full-input" id="nmMotivo" placeholder="Nombre del motivo">
+          </div>
+        </div>
+        <button class="btn-block" onclick="agregarMotivo()">+ Agregar motivo</button>
+
+        <h2 style="margin-top:24px">Motivos <span class="count-pill" id="countMotivos">0</span></h2>
+        <div class="scroll-list" id="listaMotivos"></div>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+
+<div id="toast"></div>
+
+<!-- Overlay Keypad -->
+<div class="overlay" id="kpOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h3 id="kpTitle">OP</h3>
+      <button class="sheet-close" onclick="cerrarModal('kpOverlay')">✕</button>
+    </div>
+    <div class="kp-display" id="kpDisplay">0</div>
+    <div class="kp-grid">
+      <button class="kp-key" onclick="kpPress('1')">1</button>
+      <button class="kp-key" onclick="kpPress('2')">2</button>
+      <button class="kp-key" onclick="kpPress('3')">3</button>
+      <button class="kp-key" onclick="kpPress('4')">4</button>
+      <button class="kp-key" onclick="kpPress('5')">5</button>
+      <button class="kp-key" onclick="kpPress('6')">6</button>
+      <button class="kp-key" onclick="kpPress('7')">7</button>
+      <button class="kp-key" onclick="kpPress('8')">8</button>
+      <button class="kp-key" onclick="kpPress('9')">9</button>
+      <button class="kp-key fn" id="kpDot" onclick="kpPress('.')">.</button>
+      <button class="kp-key" onclick="kpPress('0')">0</button>
+      <button class="kp-key fn" onclick="kpBackspace()">⌫</button>
+    </div>
+    <div class="kp-actions">
+      <button class="clr" onclick="kpClear()">Borrar todo</button>
+      <button class="ok" onclick="kpConfirm()">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay Confirmación -->
+<div class="overlay" id="cfOverlay">
+  <div class="confirm-box">
+    <p id="cfText">¿Confirmar?</p>
+    <div class="confirm-row">
+      <button class="cancel" onclick="cerrarModal('cfOverlay')">Cancelar</button>
+      <button class="ok" id="cfBtnOk">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =======================================================================
+   CONFIGURACIÓN — pega aquí la URL de tu Web App de Apps Script (.../exec)
+   ======================================================================= */
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzWphRIHjPW1TqbO0WhvZcPaJw-nesWjWxhh6pOfZneVsXv5MSsE5_u-Chmr4KTJD2y/exec";
+
+/* =======================================================================
+   ESTADO
+   ======================================================================= */
+let productos = [];
+let motivos = [];
+let ultimos = [];
+let editandoId = null;
+
+let form = { familia: null, op: null, codigo: null, descripcion: null, udm: null, cantidad: null, motivo: null };
+
+/* =======================================================================
+   RELOJ
+   ======================================================================= */
+function tickClock(){
+  const now = new Date();
+  document.getElementById('clockText').textContent = now.toLocaleString('es-PE', {
+    day:'numeric', month:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', second:'2-digit'
+  });
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+/* =======================================================================
+   TABS
+   ======================================================================= */
+document.querySelectorAll('.tabbar button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tabbar button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('screen-'+btn.dataset.screen).classList.add('active');
+    if(btn.dataset.screen === 'admin'){ renderProductosLista(); renderMotivosLista(); }
+  });
+});
+
+/* =======================================================================
+   TOAST
+   ======================================================================= */
+function toast(msg, tipo){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (tipo || '');
+  setTimeout(()=>{ t.className=''; }, 2600);
+}
+
+/* =======================================================================
+   API — GET / POST contra Apps Script
+   ======================================================================= */
+async function apiGet(action){
+  const res = await fetch(`${GAS_URL}?action=${action}`);
+  return res.json();
+}
+async function apiPost(payload){
+  const res = await fetch(GAS_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify(payload)
+  });
+  return res.json();
+}
+
+/* =======================================================================
+   CARGA INICIAL
+   ======================================================================= */
+async function cargarTodo(){
+  try{
+    const [p, m, u] = await Promise.all([apiGet('productos'), apiGet('motivos'), apiGet('listado')]);
+    productos = p; motivos = m; ultimos = u;
+    poblarFamilias();
+    poblarMotivos();
+    renderTabla();
+  }catch(err){
+    toast('No se pudo conectar con el Google Sheet. Revisa GAS_URL.', 'err');
+  }
+}
+cargarTodo();
+
+function familiasUnicas(){
+  return Array.from(new Set(productos.map(p=>p.familia).filter(Boolean)));
+}
+
+function poblarFamilias(){
+  const sel = document.getElementById('selFamilia');
+  const selAdmin = document.getElementById('npFamilia');
+  const fams = familiasUnicas();
+  sel.innerHTML = '<option value="">-- Seleccionar --</option>' + fams.map(f=>`<option value="${f}">${f}</option>`).join('');
+  selAdmin.innerHTML = '<option value="">-- Seleccionar --</option>' + fams.map(f=>`<option value="${f}">${f}</option>`).join('');
+}
+
+function poblarMotivos(){
+  const sel = document.getElementById('selMotivo');
+  const actual = form.motivo;
+  sel.innerHTML = '<option value="">-- Seleccionar --</option>' + motivos.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(actual) sel.value = actual;
+}
+
+/* =======================================================================
+   Familia -> filtra Descripción
+   ======================================================================= */
+function onFamiliaChange(){
+  const fam = document.getElementById('selFamilia').value;
+  form.familia = fam || null;
+  form.codigo = null; form.descripcion = null; form.udm = null;
+  document.getElementById('fCodigo').value = '';
+  document.getElementById('qtyUnit').textContent = 'UND';
+
+  const selDesc = document.getElementById('selDescripcion');
+  if(!fam){
+    selDesc.disabled = true;
+    selDesc.innerHTML = '<option value="">-- Seleccione familia primero --</option>';
+    return;
+  }
+  const lista = productos.filter(p=>p.familia === fam);
+  selDesc.disabled = false;
+  selDesc.innerHTML = '<option value="">-- Seleccione producto --</option>' +
+    lista.map(p=>`<option value="${p.codigo}">${p.descripcion}</option>`).join('');
+}
+
+function onDescripcionChange(){
+  const cod = document.getElementById('selDescripcion').value;
+  if(!cod){
+    form.codigo = null; form.descripcion = null; form.udm = null;
+    document.getElementById('fCodigo').value = '';
+    document.getElementById('qtyUnit').textContent = 'UND';
+    return;
+  }
+  const prod = productos.find(p=>String(p.codigo) === String(cod));
+  if(!prod) return;
+  form.codigo = prod.codigo;
+  form.descripcion = prod.descripcion;
+  form.udm = prod.udm || 'UND';
+  document.getElementById('fCodigo').value = prod.codigo;
+  document.getElementById('qtyUnit').textContent = form.udm;
+}
+
+function onMotivoChange(){
+  form.motivo = document.getElementById('selMotivo').value || null;
+}
+
+/* =======================================================================
+   KEYPAD numérico (OP y Cantidad)
+   ======================================================================= */
+let kpTarget = null;
+let kpValue = '';
+
+function abrirKeypad(target){
+  kpTarget = target;
+  kpValue = (target==='op' ? form.op : form.cantidad) || '';
+  document.getElementById('kpTitle').textContent = target === 'op' ? 'OP' : 'Cantidad';
+  document.getElementById('kpDot').style.visibility = target === 'cantidad' ? 'visible' : 'hidden';
+  kpRenderDisplay();
+  abrirModal('kpOverlay');
+}
+function kpRenderDisplay(){
+  document.getElementById('kpDisplay').textContent = kpValue === '' ? '0' : kpValue;
+}
+function kpPress(d){
+  if(d === '.' && (kpTarget !== 'cantidad' || kpValue.includes('.'))) return;
+  if(kpValue.length >= 12) return;
+  kpValue += d;
+  kpRenderDisplay();
+}
+function kpBackspace(){
+  kpValue = kpValue.slice(0,-1);
+  kpRenderDisplay();
+}
+function kpClear(){
+  kpValue = '';
+  kpRenderDisplay();
+}
+function kpConfirm(){
+  if(kpValue !== ''){
+    if(kpTarget === 'op'){
+      form.op = kpValue;
+      document.getElementById('fOp').value = kpValue;
+    }else{
+      form.cantidad = kpValue;
+      document.getElementById('fCantidad').value = kpValue;
+    }
+  }
+  cerrarModal('kpOverlay');
+}
+
+/* =======================================================================
+   MODALES base
+   ======================================================================= */
+function abrirModal(id){ document.getElementById(id).classList.add('show'); }
+function cerrarModal(id){ document.getElementById(id).classList.remove('show'); }
+
+/* =======================================================================
+   ENVIAR / EDITAR reproceso
+   ======================================================================= */
+function validarForm(){
+  if(!form.familia) return 'Selecciona la familia';
+  if(!form.op) return 'Digita el número de OP';
+  if(!form.codigo) return 'Selecciona el producto';
+  if(!form.cantidad) return 'Digita la cantidad';
+  if(!form.motivo) return 'Selecciona el motivo';
+  return null;
+}
+
+async function enviarReproceso(){
+  const error = validarForm();
+  if(error){ toast(error, 'err'); return; }
+
+  const payload = {
+    action: editandoId ? 'editarReproceso' : 'guardarReproceso',
+    familia: form.familia, op: form.op, codigo: form.codigo,
+    descripcion: form.descripcion, cantidad: form.cantidad, motivo: form.motivo
+  };
+  if(editandoId) payload.id = editandoId;
+
+  document.getElementById('btnAgregar').disabled = true;
+  try{
+    const r = await apiPost(payload);
+    if(r.ok){
+      toast(editandoId ? 'Registro actualizado' : 'Reproceso registrado', 'ok');
+      limpiarForm();
+      const u = await apiGet('listado');
+      ultimos = u; renderTabla();
+    }else{
+      toast(r.error || 'No se pudo guardar', 'err');
+    }
+  }catch(e){
+    toast('Error de conexión', 'err');
+  }
+  document.getElementById('btnAgregar').disabled = false;
+}
+
+function limpiarForm(){
+  form = { familia:null, op:null, codigo:null, descripcion:null, udm:null, cantidad:null, motivo:null };
+  editandoId = null;
+  document.getElementById('selFamilia').value = '';
+  document.getElementById('fOp').value = '';
+  document.getElementById('fCodigo').value = '';
+  document.getElementById('selDescripcion').disabled = true;
+  document.getElementById('selDescripcion').innerHTML = '<option value="">-- Seleccione familia primero --</option>';
+  document.getElementById('fCantidad').value = '';
+  document.getElementById('qtyUnit').textContent = 'UND';
+  document.getElementById('selMotivo').value = '';
+  document.getElementById('btnAgregarText').textContent = 'Registrar';
+  document.getElementById('btnAgregarIcon').textContent = '＋';
+  document.getElementById('btnAgregar').classList.remove('updating');
+  document.getElementById('btnCancelarEdicion').style.display = 'none';
+}
+function cancelarEdicion(){ limpiarForm(); }
+
+/* =======================================================================
+   TABLA de últimos ingresos
+   ======================================================================= */
+function renderTabla(){
+  const body = document.getElementById('tablaBody');
+  if(!ultimos || ultimos.length === 0){
+    body.innerHTML = '<tr class="empty-row"><td colspan="7">Aún no hay registros</td></tr>';
+    return;
+  }
+  body.innerHTML = ultimos.map(r=>`
+    <tr>
+      <td>${formatFechaHora(r)}</td>
+      <td class="op-cell">${r.op}</td>
+      <td>${r.codigo}</td>
+      <td>${r.descripcion}</td>
+      <td class="qty-cell">${r.cantidad}<span class="u"> ${productoUdm(r.codigo)}</span></td>
+      <td>${r.motivo}</td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn edit" onclick="editarFila('${r.id}')" title="Editar">✎</button>
+          <button class="icon-btn del" onclick="confirmarEliminar('${r.id}')" title="Eliminar">🗑</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+function productoUdm(codigo){
+  const p = productos.find(x=>String(x.codigo)===String(codigo));
+  return p ? (p.udm || 'UND') : 'UND';
+}
+function formatFechaHora(r){
+  if(r.fecha && r.hora) return `${r.fecha}, ${r.hora}`;
+  if(r.timestamp){
+    return new Date(r.timestamp).toLocaleString('es-PE', {day:'numeric', month:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', second:'2-digit'});
+  }
+  return '';
+}
+
+function editarFila(id){
+  const r = ultimos.find(x=>String(x.id)===String(id));
+  if(!r) return;
+  editandoId = id;
+  const prod = productos.find(p=>String(p.codigo)===String(r.codigo));
+  form = { familia:r.familia, op:String(r.op), codigo:r.codigo, descripcion:r.descripcion, udm: prod ? prod.udm : 'UND', cantidad:String(r.cantidad), motivo:r.motivo };
+
+  document.getElementById('selFamilia').value = r.familia;
+  onFamiliaChange();
+  document.getElementById('selDescripcion').value = r.codigo;
+  document.getElementById('fCodigo').value = r.codigo;
+  document.getElementById('qtyUnit').textContent = form.udm || 'UND';
+  document.getElementById('fOp').value = r.op;
+  document.getElementById('fCantidad').value = r.cantidad;
+  document.getElementById('selMotivo').value = r.motivo;
+
+  document.getElementById('btnAgregarText').textContent = 'Actualizar';
+  document.getElementById('btnAgregarIcon').textContent = '✎';
+  document.getElementById('btnAgregar').classList.add('updating');
+  document.getElementById('btnCancelarEdicion').style.display = 'inline-block';
+  document.getElementById('screen-ingreso').scrollIntoView({behavior:'smooth'});
+}
+
+function confirmarEliminar(id){
+  document.getElementById('cfText').textContent = '¿Eliminar este registro de reproceso? Esta acción no se puede deshacer.';
+  const btn = document.getElementById('cfBtnOk');
+  btn.onclick = async ()=>{
+    cerrarModal('cfOverlay');
+    const r = await apiPost({action:'eliminarReproceso', id});
+    if(r.ok){
+      toast('Registro eliminado', 'ok');
+      const u = await apiGet('listado');
+      ultimos = u; renderTabla();
+      if(editandoId === id) limpiarForm();
+    }else{
+      toast(r.error || 'No se pudo eliminar', 'err');
+    }
+  };
+  abrirModal('cfOverlay');
+}
+
+/* =======================================================================
+   PANTALLA ADMIN — Productos
+   ======================================================================= */
+async function agregarProducto(){
+  const codigo = document.getElementById('npCodigo').value.trim();
+  const descripcion = document.getElementById('npDescripcion').value.trim();
+  const udm = document.getElementById('npUdm').value;
+  const familia = document.getElementById('npFamilia').value;
+  if(!codigo || !descripcion || !udm || !familia){
+    toast('Completa código, descripción, UDM y familia', 'err'); return;
+  }
+  const r = await apiPost({action:'agregarProducto', codigo, descripcion, udm, familia});
+  if(r.ok){
+    toast('Producto agregado', 'ok');
+    document.getElementById('npCodigo').value = '';
+    document.getElementById('npDescripcion').value = '';
+    document.getElementById('npUdm').value = '';
+    document.getElementById('npFamilia').value = '';
+    productos = await apiGet('productos');
+    poblarFamilias();
+    renderProductosLista();
+  }else{
+    toast(r.error || 'No se pudo agregar', 'err');
+  }
+}
+
+function renderProductosLista(){
+  const q = (document.getElementById('buscarProducto').value || '').toLowerCase();
+  const filtrados = q ? productos.filter(p=>`${p.codigo} ${p.descripcion}`.toLowerCase().includes(q)) : productos;
+  document.getElementById('countProductos').textContent = productos.length;
+  const cont = document.getElementById('listaProductos');
+  if(filtrados.length === 0){
+    cont.innerHTML = '<div class="list-item"><span class="meta">Sin resultados</span></div>';
+    return;
+  }
+  cont.innerHTML = filtrados.map(p=>`
+    <div class="list-item">
+      <div>
+        <div class="name">${p.codigo} — ${p.descripcion}</div>
+        <div class="meta">${p.familia || ''} · ${p.udm || ''}</div>
+      </div>
+      <button class="icon-btn del" onclick="eliminarProductoConfirm('${p.codigo}')">🗑</button>
+    </div>
+  `).join('');
+}
+
+function eliminarProductoConfirm(codigo){
+  document.getElementById('cfText').textContent = `¿Eliminar el producto ${codigo} de la lista? Ya no aparecerá para nuevos ingresos.`;
+  const btn = document.getElementById('cfBtnOk');
+  btn.onclick = async ()=>{
+    cerrarModal('cfOverlay');
+    const r = await apiPost({action:'eliminarProducto', codigo});
+    if(r.ok){
+      toast('Producto eliminado', 'ok');
+      productos = await apiGet('productos');
+      poblarFamilias();
+      renderProductosLista();
+    }else{
+      toast(r.error || 'No se pudo eliminar', 'err');
+    }
+  };
+  abrirModal('cfOverlay');
+}
+
+/* =======================================================================
+   PANTALLA ADMIN — Motivos
+   ======================================================================= */
+async function agregarMotivo(){
+  const motivo = document.getElementById('nmMotivo').value.trim();
+  if(!motivo){ toast('Escribe el nombre del motivo', 'err'); return; }
+  const r = await apiPost({action:'agregarMotivo', motivo});
+  if(r.ok){
+    toast('Motivo agregado', 'ok');
+    document.getElementById('nmMotivo').value = '';
+    motivos = await apiGet('motivos');
+    poblarMotivos();
+    renderMotivosLista();
+  }else{
+    toast(r.error || 'No se pudo agregar', 'err');
+  }
+}
+
+function renderMotivosLista(){
+  const cont = document.getElementById('listaMotivos');
+  document.getElementById('countMotivos').textContent = motivos.length;
+  if(!motivos || motivos.length === 0){
+    cont.innerHTML = '<div class="list-item"><span class="meta">Sin motivos aún</span></div>';
+    return;
+  }
+  cont.innerHTML = motivos.map(m=>`
+    <div class="list-item">
+      <div class="name">${m}</div>
+      <button class="icon-btn del" onclick="eliminarMotivoConfirm('${m}')">🗑</button>
+    </div>
+  `).join('');
+}
+
+function eliminarMotivoConfirm(motivo){
+  document.getElementById('cfText').textContent = `¿Eliminar el motivo "${motivo}"?`;
+  const btn = document.getElementById('cfBtnOk');
+  btn.onclick = async ()=>{
+    cerrarModal('cfOverlay');
+    const r = await apiPost({action:'eliminarMotivo', motivo});
+    if(r.ok){
+      toast('Motivo eliminado', 'ok');
+      motivos = await apiGet('motivos');
+      poblarMotivos();
+      renderMotivosLista();
+    }else{
+      toast(r.error || 'No se pudo eliminar', 'err');
+    }
+  };
+  abrirModal('cfOverlay');
+}
+</script>
+</body>
+</html>
