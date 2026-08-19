@@ -485,7 +485,13 @@ function onFamiliaChange(){
   form.codigo = null; form.descripcion = null; form.udm = null;
   document.getElementById('fCodigo').value = '';
   document.getElementById('qtyUnit').textContent = 'UND';
+  poblarDescripcionSelect(fam);
+}
 
+// Reconstruye solo las opciones del select de Descripción para una familia,
+// SIN tocar el objeto `form` — usado también al editar una fila para no
+// perder el producto ya seleccionado.
+function poblarDescripcionSelect(fam){
   const selDesc = document.getElementById('selDescripcion');
   if(!fam){
     selDesc.disabled = true;
@@ -610,16 +616,25 @@ async function enviarReproceso(){
 }
 
 function limpiarForm(){
-  form = { familia:null, op:null, codigo:null, descripcion:null, udm:null, cantidad:null, motivo:null };
+  const familiaActual = form.familia; // se conserva para agilizar el siguiente registro
+  form = { familia: familiaActual, op:null, codigo:null, descripcion:null, udm:null, cantidad:null, motivo:null };
   editandoId = null;
-  document.getElementById('selFamilia').value = '';
+
   document.getElementById('fOp').value = '';
   document.getElementById('fCodigo').value = '';
-  document.getElementById('selDescripcion').disabled = true;
-  document.getElementById('selDescripcion').innerHTML = '<option value="">-- Seleccione familia primero --</option>';
-  document.getElementById('fCantidad').value = '';
   document.getElementById('qtyUnit').textContent = 'UND';
+  document.getElementById('fCantidad').value = '';
   document.getElementById('selMotivo').value = '';
+
+  if(familiaActual){
+    document.getElementById('selFamilia').value = familiaActual;
+    poblarDescripcionSelect(familiaActual);
+    document.getElementById('selDescripcion').value = '';
+  }else{
+    document.getElementById('selFamilia').value = '';
+    poblarDescripcionSelect('');
+  }
+
   document.getElementById('btnAgregarText').textContent = 'Registrar';
   document.getElementById('btnAgregarIcon').textContent = '＋';
   document.getElementById('btnAgregar').classList.remove('updating');
@@ -673,7 +688,7 @@ function editarFila(id){
   form = { familia:r.familia, op:String(r.op), codigo:r.codigo, descripcion:r.descripcion, udm: prod ? prod.udm : 'UND', cantidad:String(r.cantidad), motivo:r.motivo };
 
   document.getElementById('selFamilia').value = r.familia;
-  onFamiliaChange();
+  poblarDescripcionSelect(r.familia);
   document.getElementById('selDescripcion').value = r.codigo;
   document.getElementById('fCodigo').value = r.codigo;
   document.getElementById('qtyUnit').textContent = form.udm || 'UND';
@@ -823,3 +838,4 @@ function eliminarMotivoConfirm(motivo){
 </script>
 </body>
 </html>
+
