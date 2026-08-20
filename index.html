@@ -313,6 +313,15 @@
             <option value="">-- Seleccionar --</option>
           </select>
         </div>
+        <div class="familia-box">
+          <label>Turno:</label>
+          <select id="selTurno" onchange="onTurnoChange()">
+            <option value="">-- Seleccionar --</option>
+            <option value="Mañana">Mañana</option>
+            <option value="Tarde">Tarde</option>
+            <option value="Noche">Noche</option>
+          </select>
+        </div>
         <div class="clock-badge">🕐 <span id="clockText">--</span></div>
       </div>
       <div class="hr"></div>
@@ -362,11 +371,11 @@
         <table>
           <thead>
             <tr>
-              <th>Fecha / Hora</th><th>OP</th><th>Código</th><th>Descripción</th><th>Cantidad</th><th>Motivo</th><th>Acciones</th>
+              <th>Fecha / Hora</th><th>OP</th><th>Código</th><th>Descripción</th><th>Cantidad</th><th>Motivo</th><th>Turno</th><th>Acciones</th>
             </tr>
           </thead>
           <tbody id="tablaBody">
-            <tr class="empty-row"><td colspan="7">Cargando…</td></tr>
+            <tr class="empty-row"><td colspan="8">Cargando…</td></tr>
           </tbody>
         </table>
       </div>
@@ -570,7 +579,7 @@ let motivos = [];
 let ultimos = [];
 let editandoId = null;
 
-let form = { familia: null, op: null, codigo: null, descripcion: null, udm: null, cantidad: null, motivo: null };
+let form = { familia: null, turno: null, op: null, codigo: null, descripcion: null, udm: null, cantidad: null, motivo: null };
 
 /* =======================================================================
    RELOJ
@@ -671,6 +680,10 @@ function onFamiliaChange(){
   poblarDescripcionSelect(fam);
 }
 
+function onTurnoChange(){
+  form.turno = document.getElementById('selTurno').value || null;
+}
+
 // Reconstruye solo las opciones del select de Descripción para una familia,
 // SIN tocar el objeto `form` — usado también al editar una fila para no
 // perder el producto ya seleccionado.
@@ -763,6 +776,7 @@ function cerrarModal(id){ document.getElementById(id).classList.remove('show'); 
    ======================================================================= */
 function validarForm(){
   if(!form.familia) return 'Selecciona la familia';
+  if(!form.turno) return 'Selecciona el turno';
   if(!form.op) return 'Digita el número de OP';
   if(!form.codigo) return 'Selecciona el producto';
   if(!form.cantidad) return 'Digita la cantidad';
@@ -777,7 +791,7 @@ async function enviarReproceso(){
   const payload = {
     action: editandoId ? 'editarReproceso' : 'guardarReproceso',
     familia: form.familia, op: form.op, codigo: form.codigo,
-    descripcion: form.descripcion, cantidad: form.cantidad, motivo: form.motivo
+    descripcion: form.descripcion, cantidad: form.cantidad, motivo: form.motivo, turno: form.turno
   };
   if(editandoId) payload.id = editandoId;
 
@@ -812,7 +826,8 @@ function sincronizarCacheGraficos(){
 
 function limpiarForm(){
   const familiaActual = form.familia; // se conserva para agilizar el siguiente registro
-  form = { familia: familiaActual, op:null, codigo:null, descripcion:null, udm:null, cantidad:null, motivo:null };
+  const turnoActual = form.turno;     // idem — el turno no suele cambiar entre un registro y otro
+  form = { familia: familiaActual, turno: turnoActual, op:null, codigo:null, descripcion:null, udm:null, cantidad:null, motivo:null };
   editandoId = null;
 
   document.getElementById('fOp').value = '';
@@ -820,6 +835,7 @@ function limpiarForm(){
   document.getElementById('qtyUnit').textContent = 'UND';
   document.getElementById('fCantidad').value = '';
   document.getElementById('selMotivo').value = '';
+  document.getElementById('selTurno').value = turnoActual || '';
 
   if(familiaActual){
     document.getElementById('selFamilia').value = familiaActual;
@@ -843,7 +859,7 @@ function cancelarEdicion(){ limpiarForm(); }
 function renderTabla(){
   const body = document.getElementById('tablaBody');
   if(!ultimos || ultimos.length === 0){
-    body.innerHTML = '<tr class="empty-row"><td colspan="7">Aún no hay registros</td></tr>';
+    body.innerHTML = '<tr class="empty-row"><td colspan="8">Aún no hay registros</td></tr>';
     return;
   }
   body.innerHTML = ultimos.map(r=>`
@@ -854,6 +870,7 @@ function renderTabla(){
       <td>${r.descripcion}</td>
       <td class="qty-cell">${r.cantidad}<span class="u"> ${productoUdm(r.codigo)}</span></td>
       <td>${r.motivo}</td>
+      <td>${r.turno || ''}</td>
       <td>
         <div class="row-actions">
           <button class="icon-btn edit" onclick="editarFila('${r.id}')" title="Editar">✎</button>
@@ -880,7 +897,7 @@ function editarFila(id){
   if(!r) return;
   editandoId = id;
   const prod = productos.find(p=>String(p.codigo)===String(r.codigo));
-  form = { familia:r.familia, op:String(r.op), codigo:r.codigo, descripcion:r.descripcion, udm: prod ? prod.udm : 'UND', cantidad:String(r.cantidad), motivo:r.motivo };
+  form = { familia:r.familia, turno:r.turno, op:String(r.op), codigo:r.codigo, descripcion:r.descripcion, udm: prod ? prod.udm : 'UND', cantidad:String(r.cantidad), motivo:r.motivo };
 
   document.getElementById('selFamilia').value = r.familia;
   poblarDescripcionSelect(r.familia);
@@ -890,6 +907,7 @@ function editarFila(id){
   document.getElementById('fOp').value = r.op;
   document.getElementById('fCantidad').value = r.cantidad;
   document.getElementById('selMotivo').value = r.motivo;
+  document.getElementById('selTurno').value = r.turno || '';
 
   document.getElementById('btnAgregarText').textContent = 'Actualizar';
   document.getElementById('btnAgregarIcon').textContent = '✎';
@@ -1336,6 +1354,7 @@ function renderHistorico(regs){
 </script>
 </body>
 </html>
+
 
 
 
