@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Control de Reproceso — Planta</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <style>
   :root{
     --page:#eef1f6;
@@ -188,6 +189,65 @@
   .confirm-row .cancel{background:#f1f3f8; color:var(--ink-dim);}
   .confirm-row .ok{background:var(--red); color:#fff;}
 
+  /* ---------- GRAFICOS ---------- */
+  .filters-card{padding:22px 26px;}
+  .filters-top{display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; margin-bottom:18px;}
+  .filters-top .f-group{min-width:150px;}
+  .filters-top .f-group.grow-op{min-width:180px;}
+  .filter-actions{display:flex; gap:10px; margin-left:auto;}
+  .btn-outline{
+    background:#fff; border:1.5px solid var(--blue); color:var(--blue-dark); border-radius:10px;
+    padding:0 18px; height:48px; font-size:14px; font-weight:800; cursor:pointer;
+  }
+  .btn-outline:active{background:var(--blue-tint);}
+  .btn-clear{
+    background:none; border:1.5px solid var(--line); color:var(--ink-dim); border-radius:10px;
+    padding:0 16px; height:48px; font-size:14px; font-weight:700; cursor:pointer;
+  }
+
+  .chip-group{display:flex; flex-wrap:wrap; gap:9px;}
+  .chip{
+    padding:9px 15px; border-radius:20px; border:1.5px solid var(--line); background:#fff;
+    color:var(--ink-dim); font-size:13.5px; font-weight:700; cursor:pointer; user-select:none;
+  }
+  .chip.checked{background:var(--blue); border-color:var(--blue); color:#fff;}
+
+  .filter-block{margin-bottom:16px;}
+  .filter-block > label{font-size:12.5px; font-weight:800; color:var(--ink); text-transform:uppercase; letter-spacing:.3px; display:block; margin-bottom:9px;}
+
+  .prod-filter-head{display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;}
+  .prod-filter-head input{flex:1; min-width:180px; padding:11px 13px; border-radius:9px; border:1.5px solid var(--line); font-size:14px;}
+  .link-btn{background:none; border:none; color:var(--blue); font-size:13px; font-weight:800; cursor:pointer; padding:4px 2px;}
+
+  .prod-checklist{
+    display:flex; flex-wrap:wrap; gap:8px; max-height:210px; overflow-y:auto;
+    border:1px solid var(--line); border-radius:12px; padding:12px;
+  }
+  .prod-check-item{
+    display:flex; align-items:center; gap:9px; padding:9px 12px; border-radius:9px;
+    background:#f8f9fc; border:1.5px solid transparent; cursor:pointer; font-size:13px; width:100%;
+  }
+  .prod-check-item.checked{background:var(--blue-tint); border-color:var(--blue);}
+  .prod-check-item input{width:17px; height:17px; accent-color:var(--blue); flex-shrink:0;}
+  .prod-check-item .pc-cod{font-weight:800; color:var(--blue-dark); margin-right:4px;}
+  .prod-check-item .pc-desc{color:var(--ink); flex:1;}
+
+  .charts-grid{display:grid; grid-template-columns:1fr; gap:22px;}
+  .chart-card-head{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;}
+  .stat-pill{
+    background:var(--blue-tint); color:var(--blue-dark); font-weight:800; font-size:13.5px;
+    padding:9px 16px; border-radius:20px; white-space:nowrap;
+  }
+  .segmented{display:flex; border:1.5px solid var(--blue); border-radius:10px; overflow:hidden;}
+  .segmented button{
+    background:#fff; border:none; padding:10px 18px; font-size:13.5px; font-weight:800;
+    color:var(--blue-dark); cursor:pointer;
+  }
+  .segmented button.active{background:var(--blue); color:#fff;}
+  .chart-wrap{position:relative; height:360px;}
+  .chart-wrap.tall{height:440px;}
+  .chart-empty{text-align:center; color:var(--ink-dim); padding:60px 20px;}
+
   @media(max-width:900px){
     .form-row{align-items:stretch;}
     .f-desc{flex-basis:100%;}
@@ -201,6 +261,7 @@
   <div class="tabbar">
     <button class="active" data-screen="ingreso">Ingreso</button>
     <button data-screen="admin">Productos y Motivos</button>
+    <button data-screen="graficos">Gráficos</button>
   </div>
 
   <!-- ======================= PANTALLA INGRESO ======================= -->
@@ -240,7 +301,7 @@
           <label>Cantidad <span class="req">*</span></label>
           <div class="qty-wrap">
             <input type="text" id="fCantidad" class="field-input readonly-tap" placeholder="0.00" readonly onclick="abrirKeypad('cantidad')">
-            <span class="qty-unit" id="qtyUnit">UND</span>
+            <span class="qty-unit" id="qtyUnit">KG</span>
           </div>
         </div>
 
@@ -330,6 +391,81 @@
     </div>
   </section>
 
+  <!-- ======================= PANTALLA GRAFICOS ======================= -->
+  <section class="screen" id="screen-graficos">
+
+    <div class="card filters-card">
+      <div class="filters-top">
+        <div class="f-group grow-op">
+          <label>OP</label>
+          <input type="text" id="filOp" class="field-input" placeholder="Buscar OP…" oninput="aplicarFiltros()">
+        </div>
+        <div class="f-group">
+          <label>Año</label>
+          <select id="filAnio" class="field-input" onchange="onAnioChange()">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="f-group">
+          <label>Mes</label>
+          <select id="filMes" class="field-input" onchange="onMesChange()">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="f-group">
+          <label>Semana</label>
+          <select id="filSemana" class="field-input" onchange="aplicarFiltros()">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div class="filter-actions">
+          <button class="btn-clear" onclick="limpiarFiltros()">Limpiar filtros</button>
+        </div>
+      </div>
+
+      <div class="filter-block">
+        <label>Familia</label>
+        <div class="chip-group" id="chipsFamilia"></div>
+      </div>
+
+      <div class="filter-block">
+        <label>Producto</label>
+        <div class="prod-filter-head">
+          <input type="text" id="filProductoBuscar" placeholder="Buscar producto…" oninput="renderProductoChecklist()">
+          <button class="link-btn" onclick="marcarTodosProductos(true)">Seleccionar todos</button>
+          <button class="link-btn" onclick="marcarTodosProductos(false)">Quitar todos</button>
+        </div>
+        <div class="prod-checklist" id="prodChecklist"></div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="card">
+        <div class="chart-card-head">
+          <h2 style="margin:0">Ranking de productos por reproceso</h2>
+          <span class="stat-pill" id="statPromedio">Promedio: —</span>
+        </div>
+        <div class="chart-wrap tall" id="chartRankingWrap">
+          <canvas id="chartRanking"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="chart-card-head">
+          <h2 style="margin:0">Histórico de reproceso</h2>
+          <div class="segmented" id="segAgrupacion">
+            <button class="active" data-agr="semana" onclick="setAgrupacion('semana')">Por semana</button>
+            <button data-agr="mes" onclick="setAgrupacion('mes')">Por mes</button>
+          </div>
+        </div>
+        <div class="chart-wrap" id="chartHistoricoWrap">
+          <canvas id="chartHistorico"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
 </div>
 
 <div id="toast"></div>
@@ -412,6 +548,7 @@ document.querySelectorAll('.tabbar button').forEach(btn=>{
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById('screen-'+btn.dataset.screen).classList.add('active');
     if(btn.dataset.screen === 'admin'){ renderProductosLista(); renderMotivosLista(); }
+    if(btn.dataset.screen === 'graficos'){ initGraficos(); }
   });
 });
 
@@ -446,8 +583,8 @@ async function apiPost(payload){
    ======================================================================= */
 async function cargarTodo(){
   try{
-    const [p, m, u] = await Promise.all([apiGet('productos'), apiGet('motivos'), apiGet('listado')]);
-    productos = p; motivos = m; ultimos = u;
+    const r = await apiGet('bootstrap');
+    productos = r.productos; motivos = r.motivos; ultimos = r.listado;
     poblarFamilias();
     poblarMotivos();
     renderTabla();
@@ -598,21 +735,33 @@ async function enviarReproceso(){
   };
   if(editandoId) payload.id = editandoId;
 
-  document.getElementById('btnAgregar').disabled = true;
+  const btn = document.getElementById('btnAgregar');
+  const textoOriginal = document.getElementById('btnAgregarText').textContent;
+  btn.disabled = true;
+  document.getElementById('btnAgregarText').textContent = editandoId ? 'Actualizando…' : 'Registrando…';
   try{
     const r = await apiPost(payload);
     if(r.ok){
       toast(editandoId ? 'Registro actualizado' : 'Reproceso registrado', 'ok');
+      ultimos = r.listado; renderTabla();
+      sincronizarCacheGraficos();
       limpiarForm();
-      const u = await apiGet('listado');
-      ultimos = u; renderTabla();
     }else{
       toast(r.error || 'No se pudo guardar', 'err');
+      document.getElementById('btnAgregarText').textContent = textoOriginal;
     }
   }catch(e){
     toast('Error de conexión', 'err');
+    document.getElementById('btnAgregarText').textContent = textoOriginal;
   }
-  document.getElementById('btnAgregar').disabled = false;
+  btn.disabled = false;
+}
+
+// Si la pestaña de Gráficos ya cargó el histórico completo, lo refresca en
+// segundo plano para que quede al día sin bloquear la pantalla de Ingreso.
+function sincronizarCacheGraficos(){
+  if(reprocesosCompleto === null) return;
+  apiGet('listadoCompleto').then(l=>{ reprocesosCompleto = l; }).catch(()=>{});
 }
 
 function limpiarForm(){
@@ -711,8 +860,8 @@ function confirmarEliminar(id){
     const r = await apiPost({action:'eliminarReproceso', id});
     if(r.ok){
       toast('Registro eliminado', 'ok');
-      const u = await apiGet('listado');
-      ultimos = u; renderTabla();
+      ultimos = r.listado; renderTabla();
+      sincronizarCacheGraficos();
       if(editandoId === id) limpiarForm();
     }else{
       toast(r.error || 'No se pudo eliminar', 'err');
@@ -739,7 +888,7 @@ async function agregarProducto(){
     document.getElementById('npDescripcion').value = '';
     document.getElementById('npUdm').value = '';
     document.getElementById('npFamilia').value = '';
-    productos = await apiGet('productos');
+    productos.push({codigo, descripcion, udm, familia}); // evita re-pedir todo el catálogo
     poblarFamilias();
     renderProductosLista();
   }else{
@@ -775,7 +924,7 @@ function eliminarProductoConfirm(codigo){
     const r = await apiPost({action:'eliminarProducto', codigo});
     if(r.ok){
       toast('Producto eliminado', 'ok');
-      productos = await apiGet('productos');
+      productos = productos.filter(p=>String(p.codigo) !== String(codigo));
       poblarFamilias();
       renderProductosLista();
     }else{
@@ -795,7 +944,7 @@ async function agregarMotivo(){
   if(r.ok){
     toast('Motivo agregado', 'ok');
     document.getElementById('nmMotivo').value = '';
-    motivos = await apiGet('motivos');
+    motivos.push(motivo);
     poblarMotivos();
     renderMotivosLista();
   }else{
@@ -826,7 +975,7 @@ function eliminarMotivoConfirm(motivo){
     const r = await apiPost({action:'eliminarMotivo', motivo});
     if(r.ok){
       toast('Motivo eliminado', 'ok');
-      motivos = await apiGet('motivos');
+      motivos = motivos.filter(m=>m !== motivo);
       poblarMotivos();
       renderMotivosLista();
     }else{
@@ -835,7 +984,292 @@ function eliminarMotivoConfirm(motivo){
   };
   abrirModal('cfOverlay');
 }
+
+/* =======================================================================
+   PANTALLA GRAFICOS
+   ======================================================================= */
+let reprocesosCompleto = null;
+let familiasSeleccionadas = new Set();
+let productosSeleccionadosGraf = new Set();
+let agrupacionHistorico = 'semana';
+let chartRankingInstance = null;
+let chartHistoricoInstance = null;
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+async function initGraficos(){
+  if(reprocesosCompleto === null){
+    try{
+      reprocesosCompleto = await apiGet('listadoCompleto');
+    }catch(e){
+      toast('No se pudo cargar el histórico de reproceso', 'err');
+      reprocesosCompleto = [];
+    }
+  }
+  poblarFiltrosGraficos();
+  aplicarFiltros();
+}
+
+function fechaValida(r){ return r.timestamp && !isNaN(new Date(r.timestamp).getTime()); }
+
+// Número de semana ISO-8601 de una fecha
+function getISOWeek(date){
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayNr = (target.getDay() + 6) % 7;
+  target.setDate(target.getDate() - dayNr + 3);
+  const firstThursday = target.valueOf();
+  target.setMonth(0, 1);
+  if(target.getDay() !== 4){
+    target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+  }
+  return 1 + Math.round((firstThursday - target) / 604800000);
+}
+
+function poblarFiltrosGraficos(){
+  const fams = familiasUnicas();
+  document.getElementById('chipsFamilia').innerHTML = fams.map(f=>
+    `<div class="chip ${familiasSeleccionadas.has(f)?'checked':''}" data-fam="${f}" onclick="toggleFamiliaChip('${f}')">${f}</div>`
+  ).join('');
+  renderProductoChecklist();
+  poblarAniosSelect();
+  poblarMesesSelect();
+  poblarSemanas();
+}
+
+function poblarAniosSelect(){
+  const anios = Array.from(new Set(reprocesosCompleto.filter(fechaValida).map(r=>new Date(r.timestamp).getFullYear()))).sort();
+  const sel = document.getElementById('filAnio');
+  const actual = sel.value;
+  sel.innerHTML = '<option value="">Todos</option>' + anios.map(a=>`<option value="${a}">${a}</option>`).join('');
+  if(anios.includes(Number(actual))) sel.value = actual;
+}
+
+function poblarMesesSelect(){
+  const anio = document.getElementById('filAnio').value;
+  let regs = reprocesosCompleto.filter(fechaValida);
+  if(anio) regs = regs.filter(r=>new Date(r.timestamp).getFullYear()===Number(anio));
+  const meses = Array.from(new Set(regs.map(r=>new Date(r.timestamp).getMonth()))).sort((a,b)=>a-b);
+  const sel = document.getElementById('filMes');
+  const actual = sel.value;
+  sel.innerHTML = '<option value="">Todos</option>' + meses.map(m=>`<option value="${m}">${MESES[m]}</option>`).join('');
+  if(meses.includes(Number(actual))) sel.value = actual;
+}
+
+function poblarSemanas(){
+  const anio = document.getElementById('filAnio').value;
+  const mes = document.getElementById('filMes').value;
+  let regs = reprocesosCompleto.filter(fechaValida);
+  if(anio) regs = regs.filter(r=>new Date(r.timestamp).getFullYear()===Number(anio));
+  if(mes !== '') regs = regs.filter(r=>new Date(r.timestamp).getMonth()===Number(mes));
+  const map = new Map();
+  regs.forEach(r=>{
+    const d = new Date(r.timestamp);
+    const w = getISOWeek(d);
+    const key = `${d.getFullYear()}-${w}`;
+    if(!map.has(key)) map.set(key, {year:d.getFullYear(), week:w});
+  });
+  const arr = Array.from(map.values()).sort((a,b)=> a.year-b.year || a.week-b.week);
+  const sel = document.getElementById('filSemana');
+  const actual = sel.value;
+  sel.innerHTML = '<option value="">Todas</option>' + arr.map(s=>`<option value="${s.year}-${s.week}">Semana ${s.week} (${s.year})</option>`).join('');
+  if(arr.some(s=>`${s.year}-${s.week}`===actual)) sel.value = actual;
+}
+
+function onAnioChange(){
+  poblarMesesSelect();
+  document.getElementById('filSemana').value = '';
+  poblarSemanas();
+  aplicarFiltros();
+}
+function onMesChange(){
+  poblarSemanas();
+  aplicarFiltros();
+}
+
+function toggleFamiliaChip(fam){
+  if(familiasSeleccionadas.has(fam)) familiasSeleccionadas.delete(fam); else familiasSeleccionadas.add(fam);
+  document.querySelectorAll('#chipsFamilia .chip').forEach(c=>{
+    c.classList.toggle('checked', familiasSeleccionadas.has(c.dataset.fam));
+  });
+  renderProductoChecklist();
+  aplicarFiltros();
+}
+
+function productosVisiblesChecklist(){
+  const q = (document.getElementById('filProductoBuscar').value || '').toLowerCase();
+  let lista = productos;
+  if(familiasSeleccionadas.size > 0) lista = lista.filter(p=>familiasSeleccionadas.has(p.familia));
+  if(q) lista = lista.filter(p=>`${p.codigo} ${p.descripcion}`.toLowerCase().includes(q));
+  return lista;
+}
+
+function renderProductoChecklist(){
+  const lista = productosVisiblesChecklist();
+  const cont = document.getElementById('prodChecklist');
+  if(lista.length === 0){
+    cont.innerHTML = '<div class="chart-empty">Sin resultados</div>';
+    return;
+  }
+  cont.innerHTML = lista.map(p=>{
+    const marcado = productosSeleccionadosGraf.has(String(p.codigo));
+    return `
+      <label class="prod-check-item ${marcado?'checked':''}">
+        <input type="checkbox" ${marcado?'checked':''} onchange="toggleProductoCheck('${p.codigo}')">
+        <span class="pc-cod">${p.codigo}</span><span class="pc-desc">${p.descripcion}</span>
+      </label>`;
+  }).join('');
+}
+
+function toggleProductoCheck(codigo){
+  codigo = String(codigo);
+  if(productosSeleccionadosGraf.has(codigo)) productosSeleccionadosGraf.delete(codigo); else productosSeleccionadosGraf.add(codigo);
+  renderProductoChecklist();
+  aplicarFiltros();
+}
+
+function marcarTodosProductos(marcar){
+  productosVisiblesChecklist().forEach(p=>{
+    if(marcar) productosSeleccionadosGraf.add(String(p.codigo));
+    else productosSeleccionadosGraf.delete(String(p.codigo));
+  });
+  renderProductoChecklist();
+  aplicarFiltros();
+}
+
+function limpiarFiltros(){
+  document.getElementById('filOp').value = '';
+  document.getElementById('filProductoBuscar').value = '';
+  document.getElementById('filAnio').value = '';
+  familiasSeleccionadas.clear();
+  productosSeleccionadosGraf.clear();
+  poblarFiltrosGraficos();
+  aplicarFiltros();
+}
+
+function setAgrupacion(tipo){
+  agrupacionHistorico = tipo;
+  document.querySelectorAll('#segAgrupacion button').forEach(b=>b.classList.toggle('active', b.dataset.agr === tipo));
+  renderHistorico(filtrarRegistros());
+}
+
+function filtrarRegistros(){
+  if(!reprocesosCompleto) return [];
+  const op = (document.getElementById('filOp').value || '').trim().toLowerCase();
+  const anio = document.getElementById('filAnio').value;
+  const mes = document.getElementById('filMes').value;
+  const semana = document.getElementById('filSemana').value;
+
+  return reprocesosCompleto.filter(r=>{
+    if(op && !String(r.op).toLowerCase().includes(op)) return false;
+    if(familiasSeleccionadas.size > 0 && !familiasSeleccionadas.has(r.familia)) return false;
+    if(productosSeleccionadosGraf.size > 0 && !productosSeleccionadosGraf.has(String(r.codigo))) return false;
+
+    if(anio || mes !== '' || semana){
+      if(!fechaValida(r)) return false;
+      const d = new Date(r.timestamp);
+      if(anio && d.getFullYear() !== Number(anio)) return false;
+      if(mes !== '' && d.getMonth() !== Number(mes)) return false;
+      if(semana){
+        const [sy, sw] = semana.split('-').map(Number);
+        if(d.getFullYear() !== sy || getISOWeek(d) !== sw) return false;
+      }
+    }
+    return true;
+  });
+}
+
+function aplicarFiltros(){
+  const regs = filtrarRegistros();
+  renderRanking(regs);
+  renderHistorico(regs);
+}
+
+function renderRanking(regs){
+  const sums = new Map();
+  regs.forEach(r=>{
+    const key = String(r.codigo);
+    const cant = parseFloat(r.cantidad) || 0;
+    if(!sums.has(key)) sums.set(key, {codigo:r.codigo, descripcion:r.descripcion, total:0});
+    sums.get(key).total += cant;
+  });
+  const arr = Array.from(sums.values()).sort((a,b)=>b.total-a.total).slice(0,15);
+
+  const totalCantidad = regs.reduce((s,r)=> s + (parseFloat(r.cantidad)||0), 0);
+  const promedio = regs.length ? (totalCantidad / regs.length) : 0;
+  document.getElementById('statPromedio').textContent = regs.length ? `Promedio por registro: ${promedio.toFixed(1)}` : 'Promedio: —';
+
+  const wrap = document.getElementById('chartRankingWrap');
+  if(arr.length === 0){
+    wrap.innerHTML = '<div class="chart-empty">Sin datos para los filtros seleccionados</div>';
+    chartRankingInstance = null;
+    return;
+  }
+  if(!document.getElementById('chartRanking')) wrap.innerHTML = '<canvas id="chartRanking"></canvas>';
+  const ctx = document.getElementById('chartRanking').getContext('2d');
+  const labels = arr.map(a=>`${a.codigo} — ${a.descripcion}`);
+  const data = arr.map(a=>Math.round(a.total*100)/100);
+  if(chartRankingInstance) chartRankingInstance.destroy();
+  chartRankingInstance = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'Cantidad reprocesada', data, backgroundColor:'#3b63e0', borderRadius:6 }] },
+    options:{
+      indexAxis:'y',
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{beginAtZero:true} }
+    }
+  });
+}
+
+function periodoInfo(d, tipo){
+  if(tipo === 'mes'){
+    return {
+      key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,
+      label:`${MESES[d.getMonth()].substring(0,3)} ${d.getFullYear()}`,
+      orden: d.getFullYear()*100 + d.getMonth()
+    };
+  }
+  const w = getISOWeek(d);
+  return {
+    key:`${d.getFullYear()}-W${w}`,
+    label:`Sem ${w} (${d.getFullYear()})`,
+    orden: d.getFullYear()*100 + w
+  };
+}
+
+function renderHistorico(regs){
+  const validos = regs.filter(fechaValida);
+  const map = new Map();
+  validos.forEach(r=>{
+    const d = new Date(r.timestamp);
+    const info = periodoInfo(d, agrupacionHistorico);
+    if(!map.has(info.key)) map.set(info.key, {label:info.label, orden:info.orden, total:0});
+    map.get(info.key).total += (parseFloat(r.cantidad) || 0);
+  });
+  const arr = Array.from(map.values()).sort((a,b)=>a.orden-b.orden);
+
+  const wrap = document.getElementById('chartHistoricoWrap');
+  if(arr.length === 0){
+    wrap.innerHTML = '<div class="chart-empty">Sin datos para los filtros seleccionados</div>';
+    chartHistoricoInstance = null;
+    return;
+  }
+  if(!document.getElementById('chartHistorico')) wrap.innerHTML = '<canvas id="chartHistorico"></canvas>';
+  const ctx = document.getElementById('chartHistorico').getContext('2d');
+  const labels = arr.map(a=>a.label);
+  const data = arr.map(a=>Math.round(a.total*100)/100);
+  if(chartHistoricoInstance) chartHistoricoInstance.destroy();
+  chartHistoricoInstance = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'Cantidad reprocesada', data, backgroundColor:'#2fa96a', borderRadius:6 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ y:{beginAtZero:true} }
+    }
+  });
+}
 </script>
 </body>
 </html>
+
 
