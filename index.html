@@ -68,20 +68,32 @@
   }
 
   /* ---------- HEADER ROW ---------- */
-  .top-row{display:flex; align-items:center; flex-wrap:wrap; gap:18px 26px;}
-  .top-row h1{font-size:26px; margin:0; color:var(--blue-dark); font-weight:800; letter-spacing:.2px; white-space:nowrap;}
-  .familia-box{display:flex; align-items:center; gap:12px;}
+  .top-row{display:flex; align-items:center; flex-wrap:nowrap; gap:14px 18px;}
+  .top-row h1{font-size:26px; margin:0; color:var(--blue-dark); font-weight:800; letter-spacing:.2px; white-space:nowrap; flex-shrink:0;}
+  .familia-box{display:flex; align-items:center; gap:10px; flex-shrink:0;}
   .familia-box label{font-size:16px; font-weight:700; color:var(--ink); white-space:nowrap;}
   .familia-box select{
-    padding:12px 16px; font-size:16px; border-radius:10px; border:2px solid var(--blue);
-    background:var(--blue-tint); color:var(--blue-dark); font-weight:700; min-width:190px;
+    padding:12px 14px; font-size:16px; border-radius:10px; border:2px solid var(--blue);
+    background:var(--blue-tint); color:var(--blue-dark); font-weight:700; min-width:160px;
   }
+  /* El reloj es texto plano (mismo tamaño de siempre) y, al tocarlo, abre el
+     modal para elegir la fecha — así la caja nunca cambia de tamaño. */
   .clock-badge{
-    margin-left:auto; display:flex; align-items:center; gap:8px;
+    margin-left:auto; display:flex; align-items:center; gap:6px; flex-shrink:0; white-space:nowrap;
     background:#f4f6fb; border:1px solid var(--line); border-radius:10px;
-    padding:10px 16px; color:var(--ink-dim); font-size:15px; font-weight:600;
+    padding:9px 14px; color:var(--ink-dim); font-size:14.5px; font-weight:600;
+    cursor:pointer; font-family:inherit;
   }
+  .clock-badge:active{border-color:var(--blue);}
+  @media(max-width:980px){ .top-row{flex-wrap:wrap;} }
+  #clockDateText{font-weight:700; color:var(--blue-dark); margin-right:2px;}
   .hr{height:1px; background:var(--line); margin:18px 0 22px;}
+
+  .fecha-modal-body{display:flex; align-items:center; gap:12px; margin-bottom:16px;}
+  .fecha-modal-input{
+    flex:1; padding:14px 16px; font-size:17px; border-radius:10px; border:2px solid var(--blue);
+    background:var(--blue-tint); color:var(--blue-dark); font-weight:700; font-family:inherit;
+  }
 
   /* ---------- FORM ROW ---------- */
   .form-row{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap;}
@@ -322,7 +334,9 @@
             <option value="Noche">Noche</option>
           </select>
         </div>
-        <div class="clock-badge">🕐 <span id="clockText">--</span></div>
+        <button type="button" class="clock-badge" onclick="abrirModalFecha()">
+          🕐 <span id="clockDateText">--</span><span id="clockTimeText">--</span>
+        </button>
       </div>
       <div class="hr"></div>
 
@@ -348,7 +362,7 @@
           <label>Cantidad <span class="req">*</span></label>
           <div class="qty-wrap">
             <input type="text" id="fCantidad" class="field-input readonly-tap" placeholder="0.00" readonly onclick="abrirKeypad('cantidad')">
-            <span class="qty-unit" id="qtyUnit">KG</span>
+            <span class="qty-unit" id="qtyUnit">UND</span>
           </div>
         </div>
 
@@ -565,6 +579,24 @@
   </div>
 </div>
 
+<!-- Overlay Fecha -->
+<div class="overlay" id="fechaOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h3>Fecha del registro</h3>
+      <button class="sheet-close" onclick="cerrarModal('fechaOverlay')">✕</button>
+    </div>
+    <div class="fecha-modal-body">
+      <input type="date" id="fechaModalInput" class="fecha-modal-input">
+      <button type="button" class="btn-outline" onclick="fechaModalHoy()">Hoy</button>
+    </div>
+    <div class="kp-actions">
+      <button class="clr" onclick="cerrarModal('fechaOverlay')">Cancelar</button>
+      <button class="ok" onclick="confirmarFechaModal()">Aceptar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* =======================================================================
    CONFIGURACIÓN — pega aquí la URL de tu Web App de Apps Script (.../exec)
@@ -579,17 +611,68 @@ let motivos = [];
 let ultimos = [];
 let editandoId = null;
 
-let form = { familia: null, turno: null, op: null, codigo: null, descripcion: null, udm: null, cantidad: null, motivo: null };
+let form = { familia: null, turno: null, fecha: null, op: null, codigo: null, descripcion: null, udm: null, cantidad: null, motivo: null };
 
 /* =======================================================================
-   RELOJ
+   FECHA — por defecto hoy; editable desde el modal que abre el reloj;
+   se autoactualiza si la pantalla queda abierta de un día para otro
+   (solo si no la cambiaron a mano)
+   ======================================================================= */
+function pad2(n){ return String(n).padStart(2,'0'); }
+function fechaHoyISO(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+function formatFechaDisplay(iso){
+  const [y,m,d] = iso.split('-').map(Number);
+  return `${d}/${m}/${y}`;
+}
+let ultimaFechaPorDefecto = fechaHoyISO();
+
+function inicializarFecha(){
+  form.fecha = ultimaFechaPorDefecto;
+  document.getElementById('clockDateText').textContent = formatFechaDisplay(form.fecha) + ', ';
+}
+
+function abrirModalFecha(){
+  document.getElementById('fechaModalInput').max = fechaHoyISO();
+  document.getElementById('fechaModalInput').value = form.fecha || fechaHoyISO();
+  abrirModal('fechaOverlay');
+}
+function fechaModalHoy(){
+  document.getElementById('fechaModalInput').value = fechaHoyISO();
+}
+function confirmarFechaModal(){
+  const val = document.getElementById('fechaModalInput').value;
+  if(val){
+    form.fecha = val;
+    document.getElementById('clockDateText').textContent = formatFechaDisplay(val) + ', ';
+  }
+  cerrarModal('fechaOverlay');
+}
+
+/* =======================================================================
+   RELOJ — la hora en vivo (no editable); la fecha se toca para abrir el modal
    ======================================================================= */
 function tickClock(){
   const now = new Date();
-  document.getElementById('clockText').textContent = now.toLocaleString('es-PE', {
-    day:'numeric', month:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', second:'2-digit'
+  document.getElementById('clockTimeText').textContent = now.toLocaleString('es-PE', {
+    hour:'numeric', minute:'2-digit', second:'2-digit'
   });
+
+  // Si cambió el día (pantalla abierta de un día para otro) y la fecha
+  // seguía en el valor por defecto anterior (no la tocaron a mano), la
+  // movemos al nuevo día. Si el usuario eligió otra fecha a propósito, no se toca.
+  const hoy = fechaHoyISO();
+  if(hoy !== ultimaFechaPorDefecto){
+    if(form.fecha === ultimaFechaPorDefecto){
+      form.fecha = hoy;
+      document.getElementById('clockDateText').textContent = formatFechaDisplay(hoy) + ', ';
+    }
+    ultimaFechaPorDefecto = hoy;
+  }
 }
+inicializarFecha();
 tickClock();
 setInterval(tickClock, 1000);
 
@@ -777,6 +860,7 @@ function cerrarModal(id){ document.getElementById(id).classList.remove('show'); 
 function validarForm(){
   if(!form.familia) return 'Selecciona la familia';
   if(!form.turno) return 'Selecciona el turno';
+  if(!form.fecha) return 'Selecciona la fecha';
   if(!form.op) return 'Digita el número de OP';
   if(!form.codigo) return 'Selecciona el producto';
   if(!form.cantidad) return 'Digita la cantidad';
@@ -791,7 +875,8 @@ async function enviarReproceso(){
   const payload = {
     action: editandoId ? 'editarReproceso' : 'guardarReproceso',
     familia: form.familia, op: form.op, codigo: form.codigo,
-    descripcion: form.descripcion, cantidad: form.cantidad, motivo: form.motivo, turno: form.turno
+    descripcion: form.descripcion, cantidad: form.cantidad, motivo: form.motivo, turno: form.turno,
+    fecha: form.fecha
   };
   if(editandoId) payload.id = editandoId;
 
@@ -827,7 +912,8 @@ function sincronizarCacheGraficos(){
 function limpiarForm(){
   const familiaActual = form.familia; // se conserva para agilizar el siguiente registro
   const turnoActual = form.turno;     // idem — el turno no suele cambiar entre un registro y otro
-  form = { familia: familiaActual, turno: turnoActual, op:null, codigo:null, descripcion:null, udm:null, cantidad:null, motivo:null };
+  const fechaActual = form.fecha;     // idem — útil si se están registrando varios reprocesos de la misma fecha
+  form = { familia: familiaActual, turno: turnoActual, fecha: fechaActual, op:null, codigo:null, descripcion:null, udm:null, cantidad:null, motivo:null };
   editandoId = null;
 
   document.getElementById('fOp').value = '';
@@ -836,6 +922,8 @@ function limpiarForm(){
   document.getElementById('fCantidad').value = '';
   document.getElementById('selMotivo').value = '';
   document.getElementById('selTurno').value = turnoActual || '';
+  form.fecha = fechaActual || ultimaFechaPorDefecto;
+  document.getElementById('clockDateText').textContent = formatFechaDisplay(form.fecha) + ', ';
 
   if(familiaActual){
     document.getElementById('selFamilia').value = familiaActual;
@@ -892,12 +980,21 @@ function formatFechaHora(r){
   return '';
 }
 
+function fechaDDMMYYYYaISO(str){
+  if(!str) return '';
+  const partes = String(str).split('/');
+  if(partes.length !== 3) return '';
+  const [d, m, y] = partes;
+  return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+}
+
 function editarFila(id){
   const r = ultimos.find(x=>String(x.id)===String(id));
   if(!r) return;
   editandoId = id;
   const prod = productos.find(p=>String(p.codigo)===String(r.codigo));
-  form = { familia:r.familia, turno:r.turno, op:String(r.op), codigo:r.codigo, descripcion:r.descripcion, udm: prod ? prod.udm : 'UND', cantidad:String(r.cantidad), motivo:r.motivo };
+  const fechaISO = fechaDDMMYYYYaISO(r.fecha) || ultimaFechaPorDefecto;
+  form = { familia:r.familia, turno:r.turno, fecha:fechaISO, op:String(r.op), codigo:r.codigo, descripcion:r.descripcion, udm: prod ? prod.udm : 'UND', cantidad:String(r.cantidad), motivo:r.motivo };
 
   document.getElementById('selFamilia').value = r.familia;
   poblarDescripcionSelect(r.familia);
@@ -908,6 +1005,7 @@ function editarFila(id){
   document.getElementById('fCantidad').value = r.cantidad;
   document.getElementById('selMotivo').value = r.motivo;
   document.getElementById('selTurno').value = r.turno || '';
+  document.getElementById('clockDateText').textContent = formatFechaDisplay(fechaISO) + ', ';
 
   document.getElementById('btnAgregarText').textContent = 'Actualizar';
   document.getElementById('btnAgregarIcon').textContent = '✎';
@@ -1354,6 +1452,7 @@ function renderHistorico(regs){
 </script>
 </body>
 </html>
+
 
 
 
